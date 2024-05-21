@@ -2,8 +2,6 @@
 
 namespace OGame\Services;
 
-use Exception;
-use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use OGame\Factories\GameMissionFactory;
@@ -29,7 +27,7 @@ class FleetMissionService
      *
      * @var string[]
      */
-    protected array $type_to_label = [
+    private array $type_to_label = [
         1 => 'Attack',
         2 => 'ACS Defend',
         3 => 'Transport',
@@ -46,7 +44,7 @@ class FleetMissionService
      * Mission type to class mapping.
      * @var array<int, class-string> $missionTypeToClass
      */
-    protected array $missionTypeToClass = [
+    private array $missionTypeToClass = [
         3 => TransportMission::class,
         4 => DeploymentMission::class,
         7 => ColonisationMission::class,
@@ -57,36 +55,41 @@ class FleetMissionService
      *
      * @var PlayerService
      */
-    protected PlayerService $player;
+    private PlayerService $player;
 
     /**
      * @var ObjectService $objects
      */
-    protected ObjectService $objects;
+    private ObjectService $objects;
 
     /**
      * @var MessageService $messageService
      */
-    protected MessageService $messageService;
+    private MessageService $messageService;
+
+    /**
+     * @var GameMissionFactory $gameMissionFactory
+     */
+    private GameMissionFactory $gameMissionFactory;
 
     /**
      * The queue model where this class should get its data from.
      *
      * @var FleetMission
      */
-    protected FleetMission $model;
+    private FleetMission $model;
 
     /**
      * FleetMissionService constructor.
      */
-    public function __construct(PlayerService $player, ObjectService $objects, MessageService $messageService)
+    public function __construct(PlayerService $player, ObjectService $objects, MessageService $messageService, GameMissionFactory $gameMissionFactory)
     {
         $this->player = $player;
         $this->objects = $objects;
         $this->messageService = $messageService;
+        $this->gameMissionFactory = $gameMissionFactory;
 
-        $model_name = 'OGame\Models\FleetMission';
-        $this->model = new $model_name();
+        $this->model = new FleetMission();
     }
 
 
@@ -256,12 +259,10 @@ class FleetMissionService
      * @param Resources $resources
      * @param int $parent_id
      * @return void
-     * @throws Exception
      */
     public function createNewFromPlanet(PlanetService $planet, Coordinate $targetCoordinate, int $missionType, UnitCollection $units, Resources $resources, int $parent_id = 0): void
     {
-        $missionFactory = app()->make(GameMissionFactory::class);
-        $missionObject = $missionFactory->getMissionById($missionType, [
+        $missionObject = $this->gameMissionFactory->getMissionById($missionType, [
             'fleetMissionService' => $this,
             'messageService' => $this->messageService,
         ]);
@@ -273,8 +274,6 @@ class FleetMissionService
      *
      * @param FleetMission $mission
      * @return void
-     * @throws BindingResolutionException
-     * @throws Exception
      */
     public function updateMission(FleetMission $mission): void
     {
@@ -283,8 +282,7 @@ class FleetMissionService
             return;
         }
 
-        $missionFactory = app()->make(GameMissionFactory::class);
-        $missionObject = $missionFactory->getMissionById($mission->mission_type, [
+        $missionObject = $this->gameMissionFactory->getMissionById($mission->mission_type, [
             'fleetMissionService' => $this,
             'messageService' => $this->messageService,
         ]);
@@ -296,7 +294,6 @@ class FleetMissionService
      *
      * @param FleetMission $mission
      * @return void
-     * @throws BindingResolutionException
      */
     public function cancelMission(FleetMission $mission): void
     {
@@ -305,8 +302,7 @@ class FleetMissionService
             return;
         }
 
-        $missionFactory = app()->make(GameMissionFactory::class);
-        $missionObject = $missionFactory->getMissionById($mission->mission_type, [
+        $missionObject = $this->gameMissionFactory->getMissionById($mission->mission_type, [
             'fleetMissionService' => $this,
             'messageService' => $this->messageService,
         ]);

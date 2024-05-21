@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
 
 /**
  *
@@ -53,6 +54,7 @@ class User extends Authenticatable
 {
     use Notifiable;
     use HasFactory;
+    use HasRoles;
 
     /**
      * Disable use of default "remember_token" laravel behavior.
@@ -85,6 +87,6 @@ class User extends Authenticatable
      */
     public function tech(): HasOne
     {
-        return $this->hasOne('OGame\Models\UserTech');
+        return $this->hasOne(UserTech::class);
     }
 }

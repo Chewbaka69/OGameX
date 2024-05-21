@@ -7,12 +7,14 @@ use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use OGame\Factories\PlanetServiceFactory;
+use OGame\Models\Message;
 use OGame\Models\Planet;
 use OGame\Models\Planet\Coordinate;
 use OGame\Models\Resources;
 use OGame\Models\User;
 use OGame\Services\PlanetService;
 use OGame\Services\PlayerService;
+use OGame\ViewModels\MessageViewModel;
 
 /**
  * Base class for tests that require account context. Common setup includes signup of new account and login.
@@ -75,7 +77,7 @@ abstract class AccountTestCase extends TestCase
         $formData = [
             '_token' => csrf_token(),
             'email' => $randomEmail,
-            'password' => 'asdasdasd',
+            'password' => 'password',
             'v' => '3',
             'step' => 'validate',
             'kid' => '',
@@ -380,24 +382,25 @@ abstract class AccountTestCase extends TestCase
         }
 
         if ($resources->metal->get() > 0) {
-            $pattern = '/<span id="resources_metal" class="[^"]*" data-raw="[^"]*">\s*' . $resources->metal->getFormattedLong() . '\s*<\/span>/';
+            $pattern = '/<span\s+id="resources_metal"\s+class="[^"]*"\s+data-raw="[^"]*">\s*' . preg_quote($resources->metal->getFormattedLong(), '/') . '\s*<\/span>/';
             $result = preg_match($pattern, $content);
             $this->assertTrue($result === 1, 'Resource metal is not at ' . $resources->metal->getFormattedLong() . '.');
         }
+
         if ($resources->crystal->get() > 0) {
-            $pattern = '/<span\s+id="resources_crystal" class="[^"]*" data-raw="[^"]*">\s*' . $resources->crystal->getFormattedLong() . '\s*<\/span>/';
+            $pattern = '/<span\s+id="resources_crystal"\s+class="[^"]*"\s+data-raw="[^"]*">\s*' . preg_quote($resources->crystal->getFormattedLong(), '/') . '\s*<\/span>/';
             $result = preg_match($pattern, $content);
             $this->assertTrue($result === 1, 'Resource crystal is not at ' . $resources->crystal->getFormattedLong() . '.');
         }
 
         if ($resources->deuterium->get() > 0) {
-            $pattern = '/<span\s+id="resources_deuterium" class="[^"]*" data-raw="[^"]*">\s*' . $resources->deuterium->getFormattedLong() . '\s*<\/span>/';
+            $pattern = '/<span\s+id="resources_deuterium"\s+class="[^"]*"\s+data-raw="[^"]*">\s*' . preg_quote($resources->deuterium->getFormattedLong(), '/') . '\s*<\/span>/';
             $result = preg_match($pattern, $content);
             $this->assertTrue($result === 1, 'Resource deuterium is not at ' . $resources->deuterium->getFormattedLong() . '.');
         }
 
         if ($resources->energy->get() > 0) {
-            $pattern = '/<span\s+id="resources_energy" class="[^"]*" data-raw="[^"]*">\s*' . $resources->energy->getFormattedLong() . '\s*<\/span>/';
+            $pattern = '/<span\s+id="resources_energy"\s+class="[^"]*"\s+data-raw="[^"]*">\s*' . preg_quote($resources->energy->getFormattedLong(), '/') . '\s*<\/span>/';
             $result = preg_match($pattern, $content);
             $this->assertTrue($result === 1, 'Resource energy is not at ' . $resources->energy->getFormattedLong() . '.');
         }
@@ -620,7 +623,8 @@ abstract class AccountTestCase extends TestCase
     }
 
     /**
-     * Asserts that a message has been received in the specified tab/subtab and that it contains the specified text.
+     * Asserts that a message has been received in the frontend on the specified tab/subtab
+     * and that it contains the specified text.
      *
      * @param string $tab
      * @param string $subtab
@@ -638,6 +642,27 @@ abstract class AccountTestCase extends TestCase
         $response->assertStatus(200);
         foreach ($must_contain as $needle) {
             $response->assertSee($needle, false);
+        }
+    }
+
+    /**
+     * Asserts that a message has been received in the database for a specific player and that it contains the specified text.
+     *
+     * @param PlayerService $player
+     * @param array<int,string> $must_contain
+     * @return void
+     */
+    protected function assertMessageReceivedAndContainsDatabase(PlayerService $player, array $must_contain): void
+    {
+        $lastMessage = Message::where('user_id', $player->getId())
+            ->orderBy('id', 'desc')
+            ->first();
+
+        // Get the message body.
+        $lastMessageViewModel = new MessageViewModel($lastMessage);
+
+        foreach ($must_contain as $needle) {
+            $this->assertStringContainsString($needle, $lastMessageViewModel->getBody());
         }
     }
 }

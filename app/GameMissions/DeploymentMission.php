@@ -2,8 +2,8 @@
 
 namespace OGame\GameMissions;
 
-use Illuminate\Contracts\Container\BindingResolutionException;
-use OGame\Factories\PlanetServiceFactory;
+use OGame\GameMessages\FleetDeployment;
+use OGame\GameMessages\FleetDeploymentWithResources;
 use OGame\GameMissions\Abstracts\GameMission;
 use OGame\GameMissions\Models\MissionPossibleStatus;
 use OGame\GameObjects\Models\UnitCollection;
@@ -32,13 +32,12 @@ class DeploymentMission extends GameMission
     }
 
     /**
-     * @throws BindingResolutionException
+     * @inheritdoc
      */
     protected function processArrival(FleetMission $mission): void
     {
         // Load the target planet
-        $planetServiceFactory =  app()->make(PlanetServiceFactory::class);
-        $target_planet = $planetServiceFactory->make($mission->planet_id_to);
+        $target_planet = $this->planetServiceFactory->make($mission->planet_id_to);
 
         // Add resources to the target planet
         $resources = $this->fleetMissionService->getResources($mission);
@@ -47,13 +46,18 @@ class DeploymentMission extends GameMission
         // Send a message to the player that the mission has arrived
         // TODO: make message content translatable by using tokens instead of directly inserting dynamic content.
         if ($resources->sum() > 0) {
-            $this->messageService->sendMessageToPlayer($target_planet->getPlayer(), 'Fleet deployment', 'One of your fleets from [planet]' . $mission->planet_id_from . '[/planet] has reached [planet]' . $mission->planet_id_to . '[/planet] and delivered its goods:
-            
-Metal: ' . $mission->metal . ' 
-Crystal: ' . $mission->crystal . ' 
-Deuterium: ' . $mission->deuterium, 'fleet_deployment');
+            $this->messageService->sendSystemMessageToPlayer($target_planet->getPlayer(), FleetDeploymentWithResources::class, [
+                'from' => '[planet]' . $mission->planet_id_from . '[/planet]',
+                'to' => '[planet]' . $mission->planet_id_to . '[/planet]',
+                'metal' => (string)$mission->metal,
+                'crystal' => (string)$mission->crystal,
+                'deuterium' => (string)$mission->deuterium
+            ]);
         } else {
-            $this->messageService->sendMessageToPlayer($target_planet->getPlayer(), 'Fleet deployment', 'One of your fleets from [planet]' . $mission->planet_id_from . '[/planet] has reached [planet]' . $mission->planet_id_to . '[/planet]. The fleet doesn`t deliver goods.', 'fleet_deployment');
+            $this->messageService->sendSystemMessageToPlayer($target_planet->getPlayer(), FleetDeployment::class, [
+                'from' => '[planet]' . $mission->planet_id_from . '[/planet]',
+                'to' => '[planet]' . $mission->planet_id_to . '[/planet]',
+            ]);
         }
 
         // Mark the arrival mission as processed
@@ -61,33 +65,25 @@ Deuterium: ' . $mission->deuterium, 'fleet_deployment');
         $mission->save();
     }
 
+    /**
+     * @inheritdoc
+     */
     protected function processReturn(FleetMission $mission): void
     {
         // Load the target planet
-        $planetServiceFactory =  app()->make(PlanetServiceFactory::class);
-        $target_planet = $planetServiceFactory->make($mission->planet_id_to);
+        $target_planet = $this->planetServiceFactory->make($mission->planet_id_to);
 
         // Transport return trip: add back the units to the source planet. Then we're done.
         $target_planet->addUnits($this->fleetMissionService->getFleetUnits($mission));
 
         // Add resources to the origin planet (if any).
-        // TODO: make messages translatable by using tokens instead of directly inserting dynamic content.
         $return_resources = $this->fleetMissionService->getResources($mission);
         if ($return_resources->sum() > 0) {
             $target_planet->addResources($return_resources);
-
-            // Send message to player that the return mission has arrived
-            $this->messageService->sendMessageToPlayer($target_planet->getPlayer(), 'Return of a fleet', 'Your fleet is returning from planet [planet]' . $mission->planet_id_from . '[/planet] to planet [planet]' . $mission->planet_id_to . '[/planet] and delivered its goods:
-            
-Metal: ' . $mission->metal . '
-Crystal: ' . $mission->crystal . '
-Deuterium: ' . $mission->deuterium, 'return_of_fleet');
-        } else {
-            // Send message to player that the return mission has arrived
-            $this->messageService->sendMessageToPlayer($target_planet->getPlayer(), 'Return of a fleet', 'Your fleet is returning from planet [planet]' . $mission->planet_id_from . '[/planet] to planet [planet]' . $mission->planet_id_to . '[/planet].
-                    
-                    The fleet doesn\'t deliver goods.', 'return_of_fleet');
         }
+
+        // Send message to player that the return mission has arrived.
+        $this->sendFleetReturnMessage($mission, $target_planet->getPlayer());
 
         // Mark the return mission as processed
         $mission->processed = 1;

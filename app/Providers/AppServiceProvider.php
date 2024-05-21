@@ -2,11 +2,11 @@
 
 namespace OGame\Providers;
 
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use OGame\Factories\PlanetServiceFactory;
 use OGame\Factories\PlayerServiceFactory;
 use OGame\Services\SettingsService;
-use OGame\Utils\AppUtil;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -15,10 +15,10 @@ class AppServiceProvider extends ServiceProvider
      *
      * @return void
      */
-    public function boot()
+    final public function boot(): void
     {
         if($this->app->environment('production')) {
-            \URL::forceScheme('https');
+            URL::forceScheme('https');
         }
 
         // Register composer file for the main ingame layout.
@@ -30,12 +30,8 @@ class AppServiceProvider extends ServiceProvider
      *
      * @return void
      */
-    public function register()
+    final public function register(): void
     {
-        $this->app->singleton('appUtil', function ($app) {
-            return new AppUtil();
-        });
-
         $this->app->singleton(PlayerServiceFactory::class, function ($app) {
             return new PlayerServiceFactory();
         });

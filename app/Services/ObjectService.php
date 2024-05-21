@@ -124,18 +124,17 @@ class ObjectService
      *
      * @param string $machine_name
      * @return BuildingObject
-     * @throws Exception
      */
     public function getBuildingObjectByMachineName(string $machine_name): BuildingObject
     {
         // Loop through all buildings and return the one with the matching UID
         foreach (BuildingObjects::get() as $building) {
-            if ($building->machine_name == $machine_name) {
+            if ($building->machine_name === $machine_name) {
                 return $building;
             }
         }
 
-        throw new Exception('Building not found');
+        throw new \RuntimeException('Building not found');
     }
 
     /**
@@ -143,19 +142,18 @@ class ObjectService
      *
      * @param string $machine_name
      * @return ShipObject
-     * @throws Exception
      */
     public function getShipObjectByMachineName(string $machine_name): ShipObject
     {
         // Loop through all buildings and return the one with the matching UID
         $shipObjects = array_merge(MilitaryShipObjects::get(), CivilShipObjects::get());
         foreach ($shipObjects as $ship) {
-            if ($ship->machine_name == $machine_name) {
+            if ($ship->machine_name === $machine_name) {
                 return $ship;
             }
         }
 
-        throw new Exception('Ship not found');
+        throw new \RuntimeException('Ship not found');
     }
 
     /**
@@ -163,7 +161,6 @@ class ObjectService
      *
      * @param int $object_id
      * @return GameObject
-     * @throws Exception
      */
     public function getObjectById(int $object_id): GameObject
     {
@@ -175,7 +172,7 @@ class ObjectService
             }
         }
 
-        throw new Exception('Game object not found with ID: ' . $object_id);
+        throw new \RuntimeException('Game object not found with ID: ' . $object_id);
     }
 
     /**
@@ -183,7 +180,6 @@ class ObjectService
      *
      * @param string $machine_name
      * @return GameObject
-     * @throws Exception
      */
     public function getObjectByMachineName(string $machine_name): GameObject
     {
@@ -195,7 +191,7 @@ class ObjectService
             }
         }
 
-        throw new Exception('Game object not found with machine name: ' . $machine_name);
+        throw new \RuntimeException('Game object not found with machine name: ' . $machine_name);
     }
 
     /**
@@ -203,19 +199,18 @@ class ObjectService
      *
      * @param string $machine_name
      * @return ResearchObject
-     * @throws Exception
      */
     public function getResearchObjectByMachineName(string $machine_name): ResearchObject
     {
         // Loop through all buildings and return the one with the matching UID
-        $allObjects = array_merge(ResearchObjects::get());
+        $allObjects = ResearchObjects::get();
         foreach ($allObjects as $object) {
-            if ($object->machine_name == $machine_name) {
+            if ($object->machine_name === $machine_name) {
                 return $object;
             }
         }
 
-        throw new Exception('Unit object not found with machine name: ' . $machine_name);
+        throw new \RuntimeException('Research object not found with machine name: ' . $machine_name);
     }
 
     /**
@@ -223,19 +218,18 @@ class ObjectService
      *
      * @param int $object_id
      * @return ResearchObject
-     * @throws Exception
      */
     public function getResearchObjectById(int $object_id): ResearchObject
     {
         // Loop through all buildings and return the one with the matching UID
-        $allObjects = array_merge(ResearchObjects::get());
+        $allObjects = ResearchObjects::get();
         foreach ($allObjects as $object) {
-            if ($object->id == $object_id) {
+            if ($object->id === $object_id) {
                 return $object;
             }
         }
 
-        throw new Exception('Unit object not found with object ID: ' . $object_id);
+        throw new \RuntimeException('Unit object not found with object ID: ' . $object_id);
     }
 
     /**
@@ -243,18 +237,17 @@ class ObjectService
      *
      * @param int $object_id
      * @return UnitObject
-     * @throws Exception
      */
     public function getUnitObjectById(int $object_id): UnitObject
     {
         $allObjects = array_merge(MilitaryShipObjects::get(), CivilShipObjects::get(), DefenseObjects::get());
         foreach ($allObjects as $object) {
-            if ($object->id == $object_id) {
+            if ($object->id === $object_id) {
                 return $object;
             }
         }
 
-        throw new Exception('Unit object not found with object ID: ' . $object_id);
+        throw new \RuntimeException('Unit object not found with object ID: ' . $object_id);
     }
 
     /**
@@ -262,19 +255,18 @@ class ObjectService
      *
      * @param string $machine_name
      * @return UnitObject
-     * @throws Exception
      */
     public function getUnitObjectByMachineName(string $machine_name): UnitObject
     {
         // Loop through all buildings and return the one with the matching UID
         $allObjects = array_merge(MilitaryShipObjects::get(), CivilShipObjects::get(), DefenseObjects::get());
         foreach ($allObjects as $object) {
-            if ($object->machine_name == $machine_name) {
+            if ($object->machine_name === $machine_name) {
                 return $object;
             }
         }
 
-        throw new Exception('Unit object not found with machine name: ' . $machine_name);
+        throw new \RuntimeException('Unit object not found with machine name: ' . $machine_name);
     }
 
     /**
@@ -300,17 +292,16 @@ class ObjectService
      *
      * @param string $machine_name
      * @return BuildingObject
-     * @throws Exception
      */
     public function getBuildingObjectsWithProductionByMachineName(string $machine_name): BuildingObject
     {
         foreach (BuildingObjects::get() as $object) {
-            if ($object->machine_name == $machine_name && !empty(($object->production))) {
+            if ($object->machine_name === $machine_name && !empty(($object->production))) {
                 return $object;
             }
         }
 
-        throw new Exception('Building not found with production value for machine name: ' . $machine_name);
+        throw new \RuntimeException('Building not found with production value for machine name: ' . $machine_name);
     }
 
     /**
@@ -346,7 +337,7 @@ class ObjectService
             foreach ($object->requirements as $requirement) {
                 // Load required object and check if requirements are met.
                 $object_required = $this->getObjectByMachineName($requirement->object_machine_name);
-                if ($object_required->type == 'research') {
+                if ($object_required->type === 'research') {
                     if ($player->getResearchLevel($object_required->machine_name) < $requirement->level) {
                         return false;
                     }
@@ -396,9 +387,7 @@ class ObjectService
 
         // Get the lowest divided value which is the maximum amount of times this ship
         // can be built right now.
-        $max_build_amount = min($max_build_amount);
-
-        return $max_build_amount;
+        return min($max_build_amount);
     }
 
     /**
@@ -415,11 +404,11 @@ class ObjectService
         $player = $planet->getPlayer();
 
         // Price calculation for buildings or research (price depends on level)
-        if ($object->type == 'building' || $object->type == 'station' || $object->type == 'research') {
-            if ($object->type == 'building' || $object->type == 'station') {
+        if ($object->type === 'building' || $object->type === 'station' || $object->type === 'research') {
+            if ($object->type === 'building' || $object->type === 'station') {
                 $current_level = $planet->getObjectLevel($object->machine_name);
             } else {
-                $current_level = $player->getResearchLevel($object->machine_name);
+                $current_level = $player?->getResearchLevel($object->machine_name);
             }
 
             $price = $this->getObjectRawPrice($machine_name, $current_level + 1);
@@ -448,19 +437,19 @@ class ObjectService
         }
 
         // Price calculation for buildings or research (price depends on level)
-        if ($object->type == 'building' || $object->type == 'station' || $object->type == 'research') {
+        if ($object->type === 'building' || $object->type === 'station' || $object->type === 'research') {
             // Level 0 is free.
-            if ($level == 0) {
+            if ($level === 0) {
                 return new Resources(0, 0, 0, 0);
             }
 
             $base_price = $object->price;
 
             // Calculate price.
-            $metal = $base_price->resources->metal->get() * pow($base_price->factor, $level - 1);
-            $crystal = $base_price->resources->crystal->get() * pow($base_price->factor, $level - 1);
-            $deuterium = $base_price->resources->deuterium->get() * pow($base_price->factor, $level - 1);
-            $energy = $base_price->resources->energy->get() * pow($base_price->factor, $level - 1);
+            $metal = $base_price->resources->metal->get() * ($base_price->factor ** ($level - 1));
+            $crystal = $base_price->resources->crystal->get() * ($base_price->factor ** ($level - 1));
+            $deuterium = $base_price->resources->deuterium->get() * ($base_price->factor ** ($level - 1));
+            $energy = $base_price->resources->energy->get() * ($base_price->factor ** ($level - 1));
 
             // Round price
             $metal = round($metal);

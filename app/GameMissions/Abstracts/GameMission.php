@@ -3,9 +3,11 @@
 namespace OGame\GameMissions\Abstracts;
 
 use Exception;
-use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Carbon;
 use OGame\Factories\PlanetServiceFactory;
+use OGame\Factories\PlayerServiceFactory;
+use OGame\GameMessages\ReturnOfFleet;
+use OGame\GameMessages\ReturnOfFleetWithResources;
 use OGame\GameMissions\Models\MissionPossibleStatus;
 use OGame\GameObjects\Models\UnitCollection;
 use OGame\Models\FleetMission;
@@ -14,6 +16,7 @@ use OGame\Models\Resources;
 use OGame\Services\FleetMissionService;
 use OGame\Services\MessageService;
 use OGame\Services\PlanetService;
+use OGame\Services\PlayerService;
 
 abstract class GameMission
 {
@@ -36,10 +39,16 @@ abstract class GameMission
 
     protected MessageService $messageService;
 
-    public function __construct(FleetMissionService $fleetMissionService, MessageService $messageService)
+    protected PlanetServiceFactory $planetServiceFactory;
+
+    protected PlayerServiceFactory $playerServiceFactory;
+
+    public function __construct(FleetMissionService $fleetMissionService, MessageService $messageService, PlanetServiceFactory $planetServiceFactory, PlayerServiceFactory $playerServiceFactory)
     {
         $this->fleetMissionService = $fleetMissionService;
         $this->messageService = $messageService;
+        $this->planetServiceFactory = $planetServiceFactory;
+        $this->playerServiceFactory = $playerServiceFactory;
     }
 
     public static function getName(): string
@@ -72,7 +81,6 @@ abstract class GameMission
      *
      * @param FleetMission $mission
      * @return void
-     * @throws BindingResolutionException
      */
     public function cancel(FleetMission $mission): void
     {
@@ -111,8 +119,6 @@ abstract class GameMission
 
     /**
      * Deduct mission resources from the planet (when starting mission).
-     *
-     * @throws Exception
      */
     public function deductMissionResources(PlanetService $planet, Resources $resources, UnitCollection $units): void
     {
@@ -132,7 +138,6 @@ abstract class GameMission
      * @param Resources $resources
      * @param int $parent_id
      * @return void
-     * @throws Exception
      */
     public function start(PlanetService $planet, Coordinate $targetCoordinate, UnitCollection $units, Resources $resources, int $parent_id = 0): void
     {
@@ -165,8 +170,7 @@ abstract class GameMission
         $mission->time_departure = $time_start;
         $mission->time_arrival = $time_end;
 
-        $planetServiceFactory =  app()->make(PlanetServiceFactory::class);
-        $target_planet = $planetServiceFactory->makeForCoordinate($targetCoordinate);
+        $target_planet = $this->planetServiceFactory->makeForCoordinate($targetCoordinate);
         if ($target_planet !== null) {
             $mission->planet_id_to = $target_planet->getPlanetId();
         }
@@ -201,7 +205,6 @@ abstract class GameMission
      *
      * @param FleetMission $parentMission
      * @return void
-     * @throws BindingResolutionException
      */
     protected function startReturn(FleetMission $parentMission): void
     {
@@ -223,8 +226,7 @@ abstract class GameMission
         // In this case, we keep planet_id_from as null.
         if ($parentMission->planet_id_to === null) {
             // Attempt to load it from the target coordinates.
-            $planetServiceFactory = app()->make(PlanetServiceFactory::class);
-            $targetPlanet = $planetServiceFactory->makeForCoordinate(new Coordinate($parentMission->galaxy_to, $parentMission->system_to, $parentMission->position_to));
+            $targetPlanet = $this->planetServiceFactory->makeForCoordinate(new Coordinate($parentMission->galaxy_to, $parentMission->system_to, $parentMission->position_to));
             if ($targetPlanet !== null) {
                 $mission->planet_id_from = $targetPlanet->getPlanetId();
                 $mission->galaxy_from = $targetPlanet->getPlanetCoordinates()->galaxy;
@@ -248,8 +250,7 @@ abstract class GameMission
         $mission->planet_id_to = $parentMission->planet_id_from;
 
         // Planet from service
-        $planetServiceFactory = app()->make(PlanetServiceFactory::class);
-        $planetToService = $planetServiceFactory->make($mission->planet_id_to);
+        $planetToService = $this->planetServiceFactory->make($mission->planet_id_to);
 
         // Coordinates
         $coords = $planetToService->getPlanetCoordinates();
@@ -288,6 +289,42 @@ abstract class GameMission
         // If the mission is in the past, process it immediately.
         if ($mission->time_arrival < Carbon::now()->timestamp) {
             $this->process($mission);
+        }
+    }
+
+    /**
+     * Send a message to the player that a fleet has returned.
+     *
+     * @param FleetMission $mission
+     * @param PlayerService $targetPlayer
+     * @return void
+     */
+    protected function sendFleetReturnMessage(FleetMission $mission, PlayerService $targetPlayer): void
+    {
+        $return_resources = $this->fleetMissionService->getResources($mission);
+
+        // Define from string based on whether the planet is available or not.
+        $from = '[coordinates]' . $mission->galaxy_from . ':' . $mission->system_from . ':' . $mission->position_from . '[/coordinates]';
+        if ($mission->planet_id_from !== null) {
+            $from = '[planet]' . $mission->planet_id_from . '[/planet]';
+        }
+
+        if ($return_resources->sum() > 0) {
+            $params = [
+                'from' => $from,
+                'to' => '[planet]' . $mission->planet_id_to . '[/planet]',
+                'metal' => (string)$mission->metal,
+                'crystal' => (string)$mission->crystal,
+                'deuterium' => (string)$mission->deuterium,
+            ];
+            $this->messageService->sendSystemMessageToPlayer($targetPlayer, ReturnOfFleetWithResources::class, $params);
+        } else {
+            $params = [
+                'from' => $from,
+                'to' => '[planet]' . $mission->planet_id_to . '[/planet]',
+            ];
+            $this->messageService->sendSystemMessageToPlayer($targetPlayer, ReturnOfFleet::class, $params);
+
         }
     }
 

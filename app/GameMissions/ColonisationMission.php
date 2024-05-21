@@ -3,9 +3,8 @@
 namespace OGame\GameMissions;
 
 use Exception;
-use Illuminate\Contracts\Container\BindingResolutionException;
 use OGame\Factories\PlanetServiceFactory;
-use OGame\Factories\PlayerServiceFactory;
+use OGame\GameMessages\ColonyEstablished;
 use OGame\GameMissions\Abstracts\GameMission;
 use OGame\GameMissions\Models\MissionPossibleStatus;
 use OGame\GameObjects\Models\UnitCollection;
@@ -20,6 +19,10 @@ class ColonisationMission extends GameMission
     protected static int $typeId = 7;
     protected static bool $hasReturnMission = false;
 
+    /**
+     * @inheritdoc
+     * @throws Exception
+     */
     public function startMissionSanityChecks(PlanetService $planet, Coordinate $targetCoordinate, UnitCollection $units, Resources $resources): void
     {
         // Call the parent method
@@ -55,17 +58,15 @@ class ColonisationMission extends GameMission
     }
 
     /**
-     * @throws BindingResolutionException
+     * @inheritdoc
      */
     protected function processArrival(FleetMission $mission): void
     {
         // Sanity check: make sure the target coordinates are valid and the planet is (still) empty.
-        $planetServiceFactory =  app()->make(PlanetServiceFactory::class);
-        $target_planet = $planetServiceFactory->makeForCoordinate(new Coordinate($mission->galaxy_to, $mission->system_to, $mission->position_to));
+        $target_planet = $this->planetServiceFactory->makeForCoordinate(new Coordinate($mission->galaxy_to, $mission->system_to, $mission->position_to));
 
         // Load the mission owner user
-        $playerServiceFactory = app()->make(PlayerServiceFactory::class);
-        $player = $playerServiceFactory->make($mission->user_id);
+        $player = $this->playerServiceFactory->make($mission->user_id);
 
         if ($target_planet != null) {
             // TODO: add unittest for this behavior.
@@ -85,10 +86,12 @@ class ColonisationMission extends GameMission
         }
 
         // Create a new planet at the target coordinates.
-        $target_planet = $planetServiceFactory->createAdditionalForPlayer($player, new Coordinate($mission->galaxy_to, $mission->system_to, $mission->position_to));
+        $target_planet = $this->planetServiceFactory->createAdditionalForPlayer($player, new Coordinate($mission->galaxy_to, $mission->system_to, $mission->position_to));
 
-        // Success message
-        $this->messageService->sendMessageToPlayer($target_planet->getPlayer(), 'Settlement Report', 'The fleet has arrived at the assigned coordinates [coordinates]' . $target_planet->getPlanetCoordinates()->asString() . '[/coordinates], found a new planet there and are beginning to develop upon it immediately.', 'colony_established');
+        // Send success message
+        $this->messageService->sendSystemMessageToPlayer($player, ColonyEstablished::class, [
+            'coordinates' => $target_planet->getPlanetCoordinates()->asString(),
+        ]);
 
         // Add resources to the target planet if the mission has any.
         $resources = $this->fleetMissionService->getResources($mission);
@@ -108,35 +111,25 @@ class ColonisationMission extends GameMission
         }
     }
 
+    /**
+     * @inheritdoc
+     */
     protected function processReturn(FleetMission $mission): void
     {
         // Load the target planet
-        $planetServiceFactory =  app()->make(PlanetServiceFactory::class);
-        $target_planet = $planetServiceFactory->make($mission->planet_id_to);
+        $target_planet = $this->planetServiceFactory->make($mission->planet_id_to);
 
         // Transport return trip: add back the units to the source planet. Then we're done.
         $target_planet->addUnits($this->fleetMissionService->getFleetUnits($mission));
 
         // Add resources to the origin planet (if any).
-        // TODO: make messages translatable by using tokens instead of directly inserting dynamic content.
         $return_resources = $this->fleetMissionService->getResources($mission);
         if ($return_resources->sum() > 0) {
             $target_planet->addResources($return_resources);
-
-            // Send message to player that the return mission has arrived
-            // TODO: replace [planet] with coordinates if planet is not available.
-            // TODO: move this message to a generic place? It is used in multiple mission types for the generic return of fleet message.
-            $this->messageService->sendMessageToPlayer($target_planet->getPlayer(), 'Return of a fleet', 'Your fleet is returning from planet [planet]' . $mission->planet_id_from . '[/planet] to planet [planet]' . $mission->planet_id_to . '[/planet] and delivered its goods:
-            
-Metal: ' . $mission->metal . '
-Crystal: ' . $mission->crystal . '
-Deuterium: ' . $mission->deuterium, 'return_of_fleet');
-        } else {
-            // Send message to player that the return mission has arrived
-            $this->messageService->sendMessageToPlayer($target_planet->getPlayer(), 'Return of a fleet', 'Your fleet is returning from planet [planet]' . $mission->planet_id_from . '[/planet] to planet [planet]' . $mission->planet_id_to . '[/planet].
-                    
-                    The fleet doesn\'t deliver goods.', 'return_of_fleet');
         }
+
+        // Send message to player that the return mission has arrived.
+        $this->sendFleetReturnMessage($mission, $target_planet->getPlayer());
 
         // Mark the return mission as processed
         $mission->processed = 1;

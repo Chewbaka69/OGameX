@@ -3,7 +3,6 @@
 namespace OGame\Services;
 
 use Exception;
-use Illuminate\Contracts\Container\BindingResolutionException;
 use OGame\Factories\PlanetServiceFactory;
 use OGame\Models\Planet as Planet;
 
@@ -21,20 +20,26 @@ class PlanetListService
      *
      * @var array<PlanetService>
      */
-    protected array $planets = [];
+    private array $planets = [];
 
     /**
      * PlayerService
      *
      * @var PlayerService
      */
-    protected PlayerService $player;
+    private PlayerService $player;
+
+    /**
+     * @var PlanetServiceFactory $planetServiceFactory
+     */
+    private PlanetServiceFactory $planetServiceFactory;
 
     /**
      * Planets constructor.
      */
-    public function __construct(PlayerService $player)
+    public function __construct(PlayerService $player, PlanetServiceFactory $planetServiceFactory)
     {
+        $this->planetServiceFactory = $planetServiceFactory;
         $this->player = $player;
         $this->load($player->getId());
     }
@@ -44,30 +49,24 @@ class PlanetListService
      *
      * @param int $id
      * @return void
-     * @throws BindingResolutionException
-     * @throws Exception
      */
     public function load(int $id): void
     {
         // Get all planets of user
         $planets = Planet::where('user_id', $id)->get();
         foreach ($planets as $record) {
-            $planetServiceFactory = app()->make(PlanetServiceFactory::class);
-            $planetService = $planetServiceFactory->makeForPlayer($this->player, $record->id);
-
+            $planetService = $this->planetServiceFactory->makeForPlayer($this->player, $record->id);
             $this->planets[] = $planetService;
         }
 
         // If no planets, create at least one.
-        if (count($this->planets) < 2) {
+        if (count($this->planets) < 1) {
             // TODO: move this logic to the user creation logic as well as the tech records.
             // For testing purposes: give all players two random planets at registration.
             // Normally it should be just the Homeworld.
             $planetNames = ['Homeworld', 'Colony'];
             for ($i = 0; $i <= (2 - count($this->planets)); $i++) {
-                $planetServiceFactory = app()->make(PlanetServiceFactory::class);
-                $planetService = $planetServiceFactory->createInitialForPlayer($this->player, $planetNames[$i]);
-
+                $planetService = $this->planetServiceFactory->createInitialForPlayer($this->player, $planetNames[$i]);
                 $this->planets[] = $planetService;
             }
 
@@ -76,12 +75,6 @@ class PlanetListService
             $message = new MessageService($this->player);
             $message->sendWelcomeMessage();
         }
-        /*if (empty($this->planets)) {
-            $planet = resolve('OGame\Services\PlanetService');
-            $planet->create($id);
-
-            $this->planets[] = $planet;
-        }*/
     }
 
     /**
@@ -105,7 +98,7 @@ class PlanetListService
     public function childPlanetById(int $id): PlanetService
     {
         foreach ($this->planets as $planet) {
-            if ($planet->getPlanetId() == $id) {
+            if ($planet->getPlanetId() === $id) {
                 return $planet;
             }
         }
@@ -122,7 +115,7 @@ class PlanetListService
     public function planetExistsAndOwnedByPlayer(int $id): bool
     {
         foreach ($this->planets as $planet) {
-            if ($planet->getPlanetId() == $id) {
+            if ($planet->getPlanetId() === $id) {
                 return true;
             }
         }
@@ -140,7 +133,7 @@ class PlanetListService
 
         // Check if this planet actually exists before returning it.
         foreach ($this->planets as $planet) {
-            if ($planet->getPlanetId() == $currentPlanetId) {
+            if ($planet->getPlanetId() === $currentPlanetId) {
                 return $planet;
             }
         }

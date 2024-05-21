@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="https://github.com/lanedirt/OGameX/assets/6917405/765b558d-cbab-4dbd-90a1-254fbf32f42f" alt="OGameX logo" />
+    <img src="https://github.com/lanedirt/OGameX/assets/6917405/c81061d5-0310-4574-a91d-1ea155b567c0" alt="OGameX logo" />
 </p>
 
 <div align="center">
@@ -23,7 +23,7 @@ OGameX is an open-source OGame clone aiming to recreate the official OGame exper
 
 ## 🖥️ Live demo
 - Main branch (nightly builds): [https://main.ogamex.dev](https://main.ogamex.dev)
-- Latest stable release **(0.4.0)**: [https://release.ogamex.dev](https://release.ogamex.dev)
+- Latest stable release **(0.5.0)**: [https://release.ogamex.dev](https://release.ogamex.dev)
 
 ## 📝 Table of Contents
 - [1. Example screenshots](#screenshots)
@@ -36,6 +36,7 @@ OGameX is an open-source OGame clone aiming to recreate the official OGame exper
 - [7. Installation](#installation)
   - [a) Development: Install OGameX using Docker](#development)
   - [b) Production: Install OGameX using Docker](#production)
+  - [c) Tips for initial setup](#tips-for-initial-setup)
 - [8. Support](#support)
 - [9. License](#license)
 
@@ -66,13 +67,16 @@ OGameX is under active development with several core features already implemente
 - Fleet dispatch missions
   - Transport
   - Deployment
+  - Colonisation
+- Basic admin panel
 
 ### <a name="upcoming-features"></a> a) Upcoming Features
 
 New features are continuously being added. Upcoming features:
-- Remaining fleet dispatch missions (colonization, recycling, attack)
+- Remaining fleet dispatch missions (espionage, recycling, attack, ACS)
 - Battlesystem
 - Support for Moons
+    - Moon destruction fleet dispatch mission
 - Alliance system
 - Improve galaxy overview
 - Improve message system
@@ -156,6 +160,15 @@ You should review all settings before deploying this project to a publicly acces
 
 After completing the setup, visit http://localhost to access OGameX. You first need to create an account (no email validation), afterwards you can login using that account.
 
+### <a name="tips-for-initial-setup"></a> c) Tips for initial setup
+- **Admin account**: By default, the first registered user is assigned the admin role which can see the admin bar and is able to change server settings. You can also assign the admin role manually via the command line:
+  ```
+  $ php artisan ogamex:assign-admin-role {username}
+  ```
+  To remove the admin role from a user, use the following command:
+  ```
+    $ php artisan ogamex:remove-admin-role {username}
+  ```
 
 ## <a name="support"></a> 📞 Support
 
